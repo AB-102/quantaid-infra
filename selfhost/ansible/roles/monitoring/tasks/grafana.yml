@@ -1,0 +1,71 @@
+---
+- name: Add Grafana apt signing key
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg-full.key
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: '0644'
+
+- name: Add Grafana apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+    filename: grafana
+  register: grafana_repo
+
+- name: Install grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+    update_cache: "{{ grafana_repo.changed }}"
+
+- name: Ensure Grafana provisioning and systemd drop-in directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/grafana/provisioning/datasources
+    - /etc/grafana/provisioning/alerting
+    - /etc/systemd/system/grafana-server.service.d
+
+- name: Deploy non-sensitive Grafana provisioning files
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - {src: grafana-datasource-prometheus.yml.j2, dest: /etc/grafana/provisioning/datasources/prometheus.yml}
+    - {src: grafana-alert-rules.yml.j2, dest: /etc/grafana/provisioning/alerting/rules.yml}
+    - {src: grafana-policies.yml.j2, dest: /etc/grafana/provisioning/alerting/policies.yml}
+  notify: restart grafana-server
+
+- name: Deploy Grafana contact points (contains alert email + ntfy topic)
+  ansible.builtin.template:
+    src: grafana-contactpoints.yml.j2
+    dest: /etc/grafana/provisioning/alerting/contactpoints.yml
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: restart grafana-server
+
+- name: Deploy Grafana SMTP EnvironmentFile (contains the SMTP password)
+  ansible.builtin.template:
+    src: grafana-smtp.env.j2
+    dest: /etc/grafana/quantaid-smtp.env
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: restart grafana-server
+
+- name: Deploy Grafana SMTP systemd drop-in
+  ansible.builtin.template:
+    src: grafana-server-smtp.conf.j2
+    dest: /etc/systemd/system/grafana-server.service.d/smtp.conf
+    mode: '0644'
+  notify: restart grafana-server
+
+- name: Ensure grafana-server is enabled and running
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    state: started
+    daemon_reload: true

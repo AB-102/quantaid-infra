@@ -1,0 +1,4 @@
+---
+frontend_github_repo: AB-102/quantaid-frontend
+frontend_repo: "https://github.com/{{ frontend_github_repo }}.git"
+frontend_vite_backend_url: "https://quantaid.org"  # origin only; the app adds /api

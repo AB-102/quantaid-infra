@@ -1,0 +1,7 @@
+---
+# Ordered by blast radius: least risky VMs first
+- import_playbook: playbooks/dns.yml
+- import_playbook: playbooks/monitoring.yml
+- import_playbook: playbooks/backend.yml
+- import_playbook: playbooks/frontend.yml
+- import_playbook: playbooks/proxy.yml

@@ -1,0 +1,37 @@
+---
+# Library role (include_role): a timer that deploys the newest main commit whose CI passed.
+# Vars: au_service (unit to restart), au_github_repo (owner/name), au_repo_dir, au_build_dir,
+#   au_build_commands (run in order; the script stops at the first failure)
+
+- name: Install jq (parses the GitHub API response)
+  ansible.builtin.apt:
+    name: jq
+    state: present
+
+- name: Ensure the update script directory exists
+  ansible.builtin.file:
+    path: /opt/quantaid-update
+    state: directory
+    mode: '0755'
+
+- name: "Deploy {{ au_service }}-update.sh"
+  ansible.builtin.template:
+    src: update.sh.j2
+    dest: "/opt/quantaid-update/{{ au_service }}-update.sh"
+    mode: '0755'
+
+- name: "Deploy {{ au_service }}-update systemd service and timer"
+  ansible.builtin.template:
+    src: "update.{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ au_service }}-update.{{ item }}"
+    mode: '0644'
+  loop:
+    - service
+    - timer
+
+- name: "Ensure {{ au_service }}-update.timer is enabled and running"
+  ansible.builtin.systemd:
+    name: "{{ au_service }}-update.timer"
+    enabled: true
+    state: started
+    daemon_reload: true

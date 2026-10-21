@@ -1,0 +1,15 @@
+---
+# backup.sh writes its last-success metric to node_exporter's textfile collector
+node_exporter_extra_args: "--collector.textfile.directory=/var/lib/node_exporter/textfile"
+node_exporter_textfile_dir: /var/lib/node_exporter/textfile
+
+monitoring_smtp_host: "smtp.resend.com:587"
+monitoring_smtp_user: "resend"
+monitoring_smtp_from_address: "alerts@quantaid.org"
+monitoring_backup_retention_days: 14
+
+monitoring_mongodb_backup_uri: "{{ vault_monitoring_mongodb_backup_uri }}"
+monitoring_mongodb_monitor_uri: "{{ vault_monitoring_mongodb_monitor_uri }}"
+monitoring_ntfy_topic: "{{ vault_monitoring_ntfy_topic }}"
+monitoring_smtp_password: "{{ vault_monitoring_smtp_password }}"
+monitoring_alert_email_to: "{{ vault_monitoring_alert_email_to }}"

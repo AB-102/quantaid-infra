@@ -1,0 +1,31 @@
+---
+- name: Install mongodb_exporter
+  ansible.builtin.include_role:
+    name: tarball_binary
+  vars:
+    tb_url: "https://github.com/percona/mongodb_exporter/releases/download/v{{ mongodb_exporter_version }}/mongodb_exporter-{{ mongodb_exporter_version }}.linux-amd64.tar.gz"
+    tb_checksum: "sha256:https://github.com/percona/mongodb_exporter/releases/download/v{{ mongodb_exporter_version }}/mongodb_exporter_{{ mongodb_exporter_version }}_checksums.txt"
+    tb_binaries:
+      - "mongodb_exporter-{{ mongodb_exporter_version }}.linux-amd64/mongodb_exporter"
+
+- name: Deploy mongodb_exporter credential EnvironmentFile
+  ansible.builtin.template:
+    src: monitoring-mongo.env.j2
+    dest: /opt/quantaid-backup/monitoring-mongo.env
+    owner: root
+    mode: '0600'
+  notify: restart mongodb_exporter
+
+- name: Deploy mongodb_exporter systemd unit
+  ansible.builtin.template:
+    src: mongodb_exporter.service.j2
+    dest: /etc/systemd/system/mongodb_exporter.service
+    mode: '0644'
+  notify: restart mongodb_exporter
+
+- name: Ensure mongodb_exporter is enabled and running
+  ansible.builtin.systemd:
+    name: mongodb_exporter
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,51 @@
+---
+- name: Install bind9
+  ansible.builtin.apt:
+    name:
+      - bind9
+      - bind9utils
+      - dnsutils
+    state: present
+    update_cache: true
+
+- name: Deploy DNS zone file
+  ansible.builtin.template:
+    src: db.lab.home.arpa.j2
+    dest: "/etc/bind/db.{{ lab_domain }}"
+    owner: root
+    mode: '0644'
+    validate: "named-checkzone {{ lab_domain }} %s"
+  notify: restart bind9
+
+- name: Deploy named.conf.options
+  ansible.builtin.template:
+    src: named.conf.options.j2
+    dest: /etc/bind/named.conf.options
+    owner: root
+    mode: '0644'
+  notify: restart bind9
+
+- name: Deploy named.conf.local
+  ansible.builtin.template:
+    src: named.conf.local.j2
+    dest: /etc/bind/named.conf.local
+    owner: root
+    mode: '0644'
+  notify: restart bind9
+
+- name: Ensure bind9 is enabled and running
+  ansible.builtin.systemd:
+    name: bind9
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Allow DNS queries from the LAN
+  community.general.ufw:
+    rule: allow
+    src: "{{ lan_subnet }}"
+    port: '53'
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled

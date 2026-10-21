@@ -1,0 +1,12 @@
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/node_exporter{{ ' ' + node_exporter_extra_args if node_exporter_extra_args else '' }}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

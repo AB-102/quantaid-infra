@@ -1,0 +1,13 @@
+$TTL 86400
+@   IN  SOA dns.{{ lab_domain }}. admin.{{ lab_domain }}. (
+        1
+        604800
+        86400
+        2419200
+        86400 )
+
+@       IN  NS      dns.{{ lab_domain }}.
+
+{% for host in groups['quantaid'] %}
+{{ host.split('.')[0] }} IN A {{ hostvars[host].ansible_host }}
+{% endfor %}

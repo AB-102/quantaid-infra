@@ -1,0 +1,6 @@
+---
+- name: Provision backend VM
+  hosts: backend
+  roles:
+    - common
+    - backend

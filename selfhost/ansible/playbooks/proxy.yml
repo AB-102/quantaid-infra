@@ -1,0 +1,7 @@
+---
+- name: Provision proxy VM
+  hosts: proxy
+  roles:
+    - common
+    - proxy
+    - cloudflared

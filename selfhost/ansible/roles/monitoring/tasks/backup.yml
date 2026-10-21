@@ -1,0 +1,51 @@
+---
+- name: Create the backup support directory
+  ansible.builtin.file:
+    path: /opt/quantaid-backup
+    state: directory
+    mode: '0755'
+
+# Root only: the dumps contain user data
+- name: Create the backup directory, readable by root only
+  ansible.builtin.file:
+    path: /var/backups/quantaid-mongo
+    state: directory
+    mode: '0700'
+
+- name: Install mongodump
+  ansible.builtin.include_role:
+    name: tarball_binary
+  vars:
+    tb_url: "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-{{ mongodb_tools_platform }}-{{ mongodb_tools_version }}.tgz"
+    tb_checksum: "sha256:{{ mongodb_tools_sha256 }}"
+    tb_binaries:
+      - "mongodb-database-tools-{{ mongodb_tools_platform }}-{{ mongodb_tools_version }}/bin/mongodump"
+
+- name: Deploy mongodump backup config
+  ansible.builtin.template:
+    src: mongodump-config.yaml.j2
+    dest: /opt/quantaid-backup/mongodump-config.yaml
+    owner: root
+    mode: '0600'
+
+- name: Deploy backup.sh
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: /opt/quantaid-backup/backup.sh
+    mode: '0755'
+
+- name: Deploy backup systemd service and timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: '0644'
+  loop:
+    - quantaid-backup.service
+    - quantaid-backup.timer
+
+- name: Ensure the backup timer is enabled and running
+  ansible.builtin.systemd:
+    name: quantaid-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true

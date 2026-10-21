@@ -1,0 +1,33 @@
+---
+# Library role (include_role): downloads a .tar.gz, verifies it and installs binaries from it.
+# Vars: tb_url, tb_checksum ("sha256:<hex>" or "sha256:<checksums file URL>"),
+#   tb_binaries (paths inside the archive), tb_dest_dir (default /usr/local/bin)
+
+- name: Ensure download staging directory exists
+  ansible.builtin.file:
+    path: /opt/quantaid-downloads
+    state: directory
+    mode: '0755'
+
+- name: "Download {{ tb_url | basename }}"
+  ansible.builtin.get_url:
+    url: "{{ tb_url }}"
+    dest: "/opt/quantaid-downloads/{{ tb_url | basename }}"
+    checksum: "{{ tb_checksum }}"
+    mode: '0644'
+  register: tb_download
+
+- name: "Extract {{ tb_url | basename }}"
+  ansible.builtin.unarchive:
+    src: "/opt/quantaid-downloads/{{ tb_url | basename }}"
+    dest: /opt/quantaid-downloads
+    remote_src: true
+  when: tb_download.changed
+
+- name: "Install into {{ tb_dest_dir | default('/usr/local/bin') }}"
+  ansible.builtin.copy:
+    src: "/opt/quantaid-downloads/{{ item }}"
+    dest: "{{ tb_dest_dir | default('/usr/local/bin') }}/{{ item | basename }}"
+    mode: '0755'
+    remote_src: true
+  loop: "{{ tb_binaries }}"

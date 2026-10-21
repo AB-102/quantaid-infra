@@ -1,0 +1,6 @@
+---
+- name: Provision monitoring VM
+  hosts: monitoring
+  roles:
+    - common
+    - monitoring

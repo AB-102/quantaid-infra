@@ -1,0 +1,41 @@
+---
+# Installs the connector for a remotely-managed tunnel (created in the Cloudflare dashboard).
+
+- name: Add Cloudflare apt signing key
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-main.gpg
+    dest: /usr/share/keyrings/cloudflare-main.gpg
+    mode: '0644'
+
+- name: Add cloudflared apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main"
+    filename: cloudflared
+  register: cloudflared_repo
+
+- name: Install cloudflared
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+    update_cache: "{{ cloudflared_repo.changed }}"
+
+- name: Install cloudflared as a system service using the connector token
+  ansible.builtin.command:
+    argv: [cloudflared, service, install, "{{ proxy_cloudflare_tunnel_token }}"]
+    creates: /etc/cloudflared/token
+  no_log: true
+  # To rotate the token, delete /etc/cloudflared/token first
+
+- name: Restrict permissions on the cloudflared token file
+  ansible.builtin.file:
+    path: /etc/cloudflared/token
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Ensure cloudflared is enabled and running
+  ansible.builtin.systemd:
+    name: cloudflared
+    enabled: true
+    state: started
+    daemon_reload: true

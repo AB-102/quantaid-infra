@@ -1,0 +1,13 @@
+[Unit]
+Description=MongoDB Exporter
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/quantaid-backup/monitoring-mongo.env
+ExecStart=/usr/local/bin/mongodb_exporter --collector.diagnosticdata --compatible-mode
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

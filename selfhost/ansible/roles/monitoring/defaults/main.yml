@@ -1,0 +1,8 @@
+---
+prometheus_version: "3.13.0"
+mongodb_exporter_version: "0.51.0"
+blackbox_exporter_version: "0.28.0"
+mongodb_tools_version: "100.19.1"
+# No checksum file is published; the sha256 is in https://downloads.mongodb.org/tools/db/release.json
+mongodb_tools_sha256: f34b84a67ab96b4ff52571ec5d15e2148d96cb140b1ea9ef8c29ac33c48e3480
+mongodb_tools_platform: ubuntu2404-x86_64

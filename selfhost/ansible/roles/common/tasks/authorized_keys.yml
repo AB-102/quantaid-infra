@@ -1,0 +1,6 @@
+---
+- name: Authorize extra SSH public keys for anb
+  ansible.posix.authorized_key:
+    user: anb
+    key: "{{ item }}"
+  loop: "{{ ssh_authorized_keys }}"

@@ -1,0 +1,6 @@
+---
+- name: Provision frontend VM
+  hosts: frontend
+  roles:
+    - common
+    - frontend

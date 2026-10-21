@@ -1,0 +1,109 @@
+#!/bin/sh
+
+sudo tee /etc/netplan/00-installer-config.yaml > /dev/null <<'EOF'
+network:
+  version: 2
+  ethernets:
+    ens33:
+      dhcp4: false
+      dhcp6: false
+      addresses:
+        - 192.168.111.10/24
+      routes:
+        - to: default
+          via: 192.168.111.2
+      nameservers:
+        addresses:
+          - 192.168.111.53
+EOF
+sudo netplan apply
+sudo rm /etc/nginx/sites-enabled/default
+sudo tee /etc/nginx/sites-available/lab > /dev/null <<'EOF'
+upstream backend {
+    server backend.lab.home.arpa:8000;
+}
+
+upstream frontend {
+    server frontend.lab.home.arpa:5173;
+}
+
+server {
+    listen 80;
+    server_name proxy.lab.home.arpa;
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        client_max_body_size 10m;  # Image and screenshot uploads; nginx defaults to 1m
+    }
+}
+EOF
+sudo ln -s /etc/nginx/sites-available/lab /etc/nginx/sites-enabled/lab
+sudo systemctl reload nginx
+
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt update
+sudo apt install -y cloudflared
+# Needs a one-time interactive `cloudflared tunnel login` first
+cloudflared tunnel create quantaid-home
+sudo mkdir -p /etc/cloudflared
+sudo tee /etc/cloudflared/config.yml > /dev/null <<'EOF'
+tunnel: de29c570-e6ef-442c-a826-4a67363dc710
+credentials-file: /home/anb/.cloudflared/de29c570-e6ef-442c-a826-4a67363dc710.json
+
+ingress:
+  - hostname: quantaid.org
+    service: http://localhost:80
+
+  - hostname: www.quantaid.org
+    service: http://localhost:80
+
+  - service: http_status:404
+EOF
+cloudflared tunnel route dns quantaid-home quantaid.org
+cloudflared tunnel route dns quantaid-home www.quantaid.org
+sudo cloudflared service install
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+sudo ufw allow from 127.0.0.1 to any port 80
+sudo ufw allow from 192.168.111.40 to any port 9100
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow from 192.168.111.0/24 to any port 22 proto tcp # allow SSH before enabling UFW
+sudo ufw enable
+sudo ufw status numbered
+
+
+# --- node_exporter: system metrics for Prometheus ---
+curl -LO https://github.com/prometheus/node_exporter/releases/download/v1.11.1/node_exporter-1.11.1.linux-amd64.tar.gz
+tar -xzf node_exporter-1.11.1.linux-amd64.tar.gz
+sudo cp node_exporter-1.11.1.linux-amd64/node_exporter /usr/local/bin/
+sudo tee /etc/systemd/system/node_exporter.service > /dev/null <<'EOF'
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now node_exporter

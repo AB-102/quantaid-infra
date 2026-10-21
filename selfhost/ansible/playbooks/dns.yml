@@ -1,0 +1,6 @@
+---
+- name: Provision DNS VM
+  hosts: dns
+  roles:
+    - common
+    - dns

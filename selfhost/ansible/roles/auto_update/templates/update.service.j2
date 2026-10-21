@@ -1,0 +1,8 @@
+[Unit]
+Description=Deploy the newest passing commit of {{ au_service }}
+
+[Service]
+Type=oneshot
+# anb owns the checkout and can sudo the restart
+User=anb
+ExecStart=/opt/quantaid-update/{{ au_service }}-update.sh

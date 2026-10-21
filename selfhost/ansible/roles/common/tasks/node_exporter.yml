@@ -1,0 +1,30 @@
+---
+- name: Ensure node_exporter textfile directory exists
+  ansible.builtin.file:
+    path: "{{ node_exporter_textfile_dir }}"
+    state: directory
+    mode: '0755'
+  when: node_exporter_textfile_dir | length > 0
+
+- name: Install node_exporter binary
+  ansible.builtin.include_role:
+    name: tarball_binary
+  vars:
+    tb_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    tb_checksum: "sha256:https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/sha256sums.txt"
+    tb_binaries:
+      - "node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+
+- name: Deploy node_exporter systemd unit
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+  notify: restart node_exporter
+
+- name: Ensure node_exporter is enabled and running
+  ansible.builtin.systemd:
+    name: node_exporter
+    enabled: true
+    state: started
+    daemon_reload: true

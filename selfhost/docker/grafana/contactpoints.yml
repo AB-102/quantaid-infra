@@ -1,0 +1,14 @@
+# Grafana fills in ${...} from the container environment (docker-compose.yaml)
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: quantaid-alerts
+    receivers:
+      - uid: quantaid-email
+        type: email
+        settings:
+          addresses: ${ALERT_EMAIL_TO}
+      - uid: quantaid-ntfy
+        type: webhook
+        settings:
+          url: https://ntfy.sh/${NTFY_TOPIC}

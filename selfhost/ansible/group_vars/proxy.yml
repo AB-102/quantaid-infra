@@ -1,0 +1,2 @@
+---
+proxy_cloudflare_tunnel_token: "{{ vault_proxy_cloudflare_tunnel_token }}"

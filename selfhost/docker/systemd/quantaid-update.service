@@ -1,0 +1,10 @@
+[Unit]
+Description=Pull and start new Quantaid images
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/anb/quantaid-infra/selfhost/docker
+# CI only pushes :main after tests and the staging deploys pass
+ExecStart=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d
+ExecStart=/usr/bin/docker image prune -f

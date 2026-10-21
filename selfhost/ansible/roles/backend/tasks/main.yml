@@ -1,0 +1,95 @@
+---
+# ansible.cfg sets become: true; tasks under /home/anb use become: false so anb owns the files.
+
+- name: Install Python, uv prerequisites, and git
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - git
+      - curl
+    state: present
+    update_cache: true
+
+- name: Install uv
+  ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: /home/anb/.local/bin/uv
+  become: false
+
+- name: Ensure uv is on PATH for interactive logins
+  ansible.builtin.lineinfile:
+    path: /home/anb/.bashrc
+    line: '. "$HOME/.local/bin/env"'
+    create: true
+  become: false
+
+# Clone only; afterwards the auto_update timer moves the checkout to each passing commit
+- name: Clone the backend repository
+  ansible.builtin.git:
+    repo: "{{ backend_repo }}"
+    dest: /home/anb/quantaid-backend
+    version: main
+    force: true
+    update: false
+  become: false
+  register: backend_git
+
+- name: Deploy backend .env
+  ansible.builtin.template:
+    src: backend.env.j2
+    dest: /home/anb/quantaid-backend/.env
+    mode: '0600'
+  become: false
+  register: backend_env
+  notify: restart quantaid-backend
+
+- name: Run uv sync
+  ansible.builtin.command: /home/anb/.local/bin/uv sync
+  args:
+    chdir: /home/anb/quantaid-backend
+  become: false
+  when: backend_git.changed or backend_env.changed
+  changed_when: true
+
+- name: Deploy backend systemd unit
+  ansible.builtin.template:
+    src: quantaid-backend.service.j2
+    dest: /etc/systemd/system/quantaid-backend.service
+    mode: '0644'
+  notify: restart quantaid-backend
+
+- name: Ensure quantaid-backend is enabled and running
+  ansible.builtin.systemd:
+    name: quantaid-backend
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Install the auto-update timer
+  ansible.builtin.include_role:
+    name: auto_update
+  vars:
+    au_service: quantaid-backend
+    au_github_repo: "{{ backend_github_repo }}"
+    au_repo_dir: /home/anb/quantaid-backend
+    au_build_dir: /home/anb/quantaid-backend
+    au_build_commands:
+      - /home/anb/.local/bin/uv sync
+
+- name: Allow the backend port from the proxy VM
+  community.general.ufw:
+    rule: allow
+    src: "{{ hostvars[groups['proxy'][0]].ansible_host }}"
+    port: '8000'
+
+- name: Allow the backend port from the monitoring VM (blackbox /health probe)
+  community.general.ufw:
+    rule: allow
+    src: "{{ hostvars[groups['monitoring'][0]].ansible_host }}"
+    port: '8000'
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled

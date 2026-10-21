@@ -1,0 +1,21 @@
+# Copy to vault.yml (gitignored), fill in, then: ansible-vault encrypt group_vars/all/vault.yml
+
+# --- backend ---
+vault_backend_openai_api_key: "your-openai-api-key"
+vault_backend_mongodb_uri: "your-mongodb-connection-uri"
+vault_backend_admin_emails: "admin1@email.com,admin2@email.com"
+vault_backend_jwt_secret_key: "your-jwt-secret-key"
+
+# --- monitoring ---
+# Read-only Atlas user for the mongodump backups
+vault_monitoring_mongodb_backup_uri: "mongodb+srv://backup-user:password@cluster.mongodb.net/quantaid"
+# Read-only Atlas user for mongodb_exporter
+vault_monitoring_mongodb_monitor_uri: "mongodb+srv://monitor-user:password@cluster.mongodb.net/admin"
+# Hard-to-guess ntfy.sh topic for alerts
+vault_monitoring_ntfy_topic: "your-unique-topic-name"
+vault_monitoring_smtp_password: "your-resend-api-key"
+vault_monitoring_alert_email_to: "you@example.com"
+
+# --- proxy ---
+# Connector token of the remotely-managed Cloudflare Tunnel
+vault_proxy_cloudflare_tunnel_token: "your-cloudflare-tunnel-connector-token"

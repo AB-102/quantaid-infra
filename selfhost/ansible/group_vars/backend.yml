@@ -1,0 +1,11 @@
+---
+backend_github_repo: AB-102/quantaid-backend
+backend_repo: "https://github.com/{{ backend_github_repo }}.git"
+backend_cors_origins: "https://quantaid.org,https://www.quantaid.org"  # www.quantaid.org calls the API at quantaid.org cross-origin
+backend_is_rice_deployment: "false"
+backend_google_client_id: "722089328654-hisqrbcsces4590venl58a6igct6hp1r.apps.googleusercontent.com"  # Public, not a secret
+
+backend_openai_api_key: "{{ vault_backend_openai_api_key }}"
+backend_mongodb_uri: "{{ vault_backend_mongodb_uri }}"
+backend_admin_emails: "{{ vault_backend_admin_emails }}"
+backend_jwt_secret_key: "{{ vault_backend_jwt_secret_key }}"

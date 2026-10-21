@@ -1,0 +1,7 @@
+---
+lab_domain: lab.home.arpa
+lan_subnet: 192.168.111.0/24
+lan_gateway: 192.168.111.2
+
+# Extra SSH public keys for anb, e.g. the main PC's (Packer bakes in the laptop's)
+ssh_authorized_keys: []

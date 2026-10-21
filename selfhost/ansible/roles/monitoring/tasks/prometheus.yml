@@ -1,0 +1,41 @@
+---
+- name: Install prometheus and promtool
+  ansible.builtin.include_role:
+    name: tarball_binary
+  vars:
+    tb_url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    tb_checksum: "sha256:https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/sha256sums.txt"
+    tb_binaries:
+      - "prometheus-{{ prometheus_version }}.linux-amd64/prometheus"
+      - "prometheus-{{ prometheus_version }}.linux-amd64/promtool"
+
+- name: Ensure prometheus config and data directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/prometheus
+    - /var/lib/prometheus
+
+- name: Deploy prometheus.yml
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    mode: '0644'
+    validate: /usr/local/bin/promtool check config %s
+  notify: restart prometheus
+
+- name: Deploy prometheus systemd unit
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    mode: '0644'
+  notify: restart prometheus
+
+- name: Ensure prometheus is enabled and running
+  ansible.builtin.systemd:
+    name: prometheus
+    enabled: true
+    state: started
+    daemon_reload: true

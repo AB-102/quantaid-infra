@@ -1,0 +1,7 @@
+---
+- import_tasks: backup.yml
+- import_tasks: mongodb_exporter.yml
+- import_tasks: blackbox_exporter.yml
+- import_tasks: prometheus.yml
+- import_tasks: grafana.yml
+- import_tasks: firewall.yml

@@ -1,0 +1,14 @@
+[Unit]
+Description=Quantaid Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=anb
+WorkingDirectory=/home/anb/quantaid-frontend/frontend
+ExecStart=/usr/local/bin/serve -s dist -l 5173
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

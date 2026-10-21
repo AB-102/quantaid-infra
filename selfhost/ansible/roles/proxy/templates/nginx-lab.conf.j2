@@ -1,0 +1,30 @@
+upstream backend {
+    server {{ groups['backend'][0] }}:8000;
+}
+
+upstream frontend {
+    server {{ groups['frontend'][0] }}:5173;
+}
+
+server {
+    listen 80;
+    server_name {{ inventory_hostname }};
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        client_max_body_size 10m;  # Image and screenshot uploads; nginx defaults to 1m
+    }
+}

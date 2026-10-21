@@ -1,0 +1,5 @@
+---
+- name: restart quantaid-frontend
+  ansible.builtin.systemd:
+    name: quantaid-frontend
+    state: restarted

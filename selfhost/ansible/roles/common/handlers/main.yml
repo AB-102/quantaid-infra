@@ -1,0 +1,8 @@
+---
+- name: netplan apply
+  ansible.builtin.command: netplan apply
+
+- name: restart node_exporter
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: restarted

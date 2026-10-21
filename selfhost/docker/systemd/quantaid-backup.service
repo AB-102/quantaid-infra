@@ -1,0 +1,7 @@
+[Unit]
+Description=Quantaid MongoDB Backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/anb/quantaid-infra/selfhost/docker
+ExecStart=/usr/bin/docker compose run --rm backup

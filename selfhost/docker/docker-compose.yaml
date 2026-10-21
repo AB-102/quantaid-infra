@@ -1,0 +1,121 @@
+# Single-host route: app, proxy, tunnel, monitoring and backups. Secrets come from .env.
+# Ports bind to 127.0.0.1 because Docker's published ports bypass UFW; reach Grafana
+# and Prometheus through an SSH tunnel.
+
+services:
+  backend:
+    image: ghcr.io/ab-102/quantaid-backend:main
+    # 2 workers instead of the image's 4, to fit a 4 GB host
+    command: ["uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      MONGODB_URI: ${MONGODB_URI}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ENVIRONMENT: production
+      CORS_ORIGINS: https://quantaid.org,https://www.quantaid.org
+      IS_RICE_DEPLOYMENT: "false"
+      GOOGLE_CLIENT_ID: 722089328654-hisqrbcsces4590venl58a6igct6hp1r.apps.googleusercontent.com
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/ab-102/quantaid-frontend:main
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:1.30.6-alpine
+    ports:
+      - "127.0.0.1:80:80"
+    volumes:
+      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    # Restart nginx when backend or frontend is recreated, so it picks up their new IPs
+    depends_on:
+      backend:
+        condition: service_started
+        restart: true
+      frontend:
+        condition: service_started
+        restart: true
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.2
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    # Host networking: reaches the proxy at localhost:80, like the VM route's tunnel
+    network_mode: host
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.13.0
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: smtp.resend.com:587
+      GF_SMTP_USER: resend
+      GF_SMTP_PASSWORD: ${SMTP_PASSWORD}
+      GF_SMTP_FROM_ADDRESS: alerts@quantaid.org
+      GF_SMTP_FROM_NAME: Quantaid Alerts
+      # Read by grafana/contactpoints.yml
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO}
+      NTFY_TOPIC: ${NTFY_TOPIC}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./grafana/contactpoints.yml:/etc/grafana/provisioning/alerting/contactpoints.yml:ro
+      # Shared with the VM route; these templates contain no Jinja
+      - ../ansible/roles/monitoring/templates/grafana-alert-rules.yml.j2:/etc/grafana/provisioning/alerting/rules.yml:ro
+      - ../ansible/roles/monitoring/templates/grafana-policies.yml.j2:/etc/grafana/provisioning/alerting/policies.yml:ro
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.11.1
+    command:
+      - --path.rootfs=/host
+      # backup.sh writes its last-success metric here
+      - --collector.textfile.directory=/host/var/lib/node_exporter/textfile
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.28.0
+    volumes:
+      # Shared with the VM route; this template contains no Jinja
+      - ../ansible/roles/monitoring/templates/blackbox.yml.j2:/etc/blackbox_exporter/config.yml:ro
+    restart: unless-stopped
+
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.51.0
+    command: ["--collector.diagnosticdata", "--compatible-mode"]
+    environment:
+      MONGODB_URI: ${MONGODB_MONITOR_URI}
+    restart: unless-stopped
+
+  # Run daily by quantaid-backup.timer, not by `docker compose up`
+  backup:
+    image: mongo:8.0.34
+    profiles: ["backup"]
+    command: ["sh", "/backup.sh"]
+    environment:
+      MONGODB_BACKUP_URI: ${MONGODB_BACKUP_URI}
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - /var/backups/quantaid-mongo:/backups
+      - /var/lib/node_exporter/textfile:/textfile
+
+volumes:
+  prometheus-data:
+  grafana-data:
