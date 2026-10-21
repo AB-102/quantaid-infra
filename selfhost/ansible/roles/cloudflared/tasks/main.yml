@@ -19,19 +19,29 @@
     state: present
     update_cache: "{{ cloudflared_repo.changed }}"
 
-- name: Install cloudflared as a system service using the connector token
-  ansible.builtin.command:
-    argv: [cloudflared, service, install, "{{ proxy_cloudflare_tunnel_token }}"]
-    creates: /etc/cloudflared/token
-  no_log: true
-  # To rotate the token, delete /etc/cloudflared/token first
-
-- name: Restrict permissions on the cloudflared token file
+- name: Ensure /etc/cloudflared exists
   ansible.builtin.file:
-    path: /etc/cloudflared/token
+    path: /etc/cloudflared
+    state: directory
+    mode: '0755'
+
+# A root-only token file keeps the token out of the unit file and the process list
+- name: Deploy the connector token
+  ansible.builtin.copy:
+    content: "{{ proxy_cloudflare_tunnel_token }}"
+    dest: /etc/cloudflared/token
     owner: root
     group: root
     mode: '0600'
+  no_log: true
+  notify: restart cloudflared
+
+- name: Deploy the cloudflared systemd unit
+  ansible.builtin.template:
+    src: cloudflared.service.j2
+    dest: /etc/systemd/system/cloudflared.service
+    mode: '0644'
+  notify: restart cloudflared
 
 - name: Ensure cloudflared is enabled and running
   ansible.builtin.systemd:

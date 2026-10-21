@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. ./proxy.env
+
 sudo tee /etc/netplan/00-installer-config.yaml > /dev/null <<'EOF'
 network:
   version: 2
@@ -17,7 +19,9 @@ network:
           - 192.168.111.53
 EOF
 sudo netplan apply
-sudo rm /etc/nginx/sites-enabled/default
+sudo apt update
+sudo apt install -y nginx curl
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo tee /etc/nginx/sites-available/lab > /dev/null <<'EOF'
 upstream backend {
     server backend.lab.home.arpa:8000;
@@ -50,34 +54,36 @@ server {
     }
 }
 EOF
-sudo ln -s /etc/nginx/sites-available/lab /etc/nginx/sites-enabled/lab
+sudo ln -sf /etc/nginx/sites-available/lab /etc/nginx/sites-enabled/lab
 sudo systemctl reload nginx
 
 curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
 echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
 sudo apt update
 sudo apt install -y cloudflared
-# Needs a one-time interactive `cloudflared tunnel login` first
-cloudflared tunnel create quantaid-home
+# The tunnel and its public hostnames are managed in the Cloudflare dashboard; this only runs the connector.
+# A root-only token file keeps the token out of the unit file and the process list.
 sudo mkdir -p /etc/cloudflared
-sudo tee /etc/cloudflared/config.yml > /dev/null <<'EOF'
-tunnel: de29c570-e6ef-442c-a826-4a67363dc710
-credentials-file: /home/anb/.cloudflared/de29c570-e6ef-442c-a826-4a67363dc710.json
+printf '%s' "$CLOUDFLARE_TUNNEL_TOKEN" | sudo tee /etc/cloudflared/token > /dev/null
+sudo chmod 600 /etc/cloudflared/token
+sudo tee /etc/systemd/system/cloudflared.service > /dev/null <<'EOF'
+[Unit]
+Description=Cloudflare Tunnel connector
+After=network-online.target
+Wants=network-online.target
 
-ingress:
-  - hostname: quantaid.org
-    service: http://localhost:80
+[Service]
+Type=notify
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token-file /etc/cloudflared/token
+Restart=on-failure
+RestartSec=5
 
-  - hostname: www.quantaid.org
-    service: http://localhost:80
-
-  - service: http_status:404
+[Install]
+WantedBy=multi-user.target
 EOF
-cloudflared tunnel route dns quantaid-home quantaid.org
-cloudflared tunnel route dns quantaid-home www.quantaid.org
-sudo cloudflared service install
+sudo systemctl daemon-reload
 sudo systemctl enable cloudflared
-sudo systemctl start cloudflared
+sudo systemctl restart cloudflared
 sudo ufw allow from 127.0.0.1 to any port 80
 sudo ufw allow from 192.168.111.40 to any port 9100
 sudo ufw default deny incoming
