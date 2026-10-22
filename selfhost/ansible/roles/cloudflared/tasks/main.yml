@@ -1,5 +1,5 @@
 ---
-# Installs the connector for a remotely-managed tunnel (created in the Cloudflare dashboard).
+# Runs the connector for the locally-managed tunnel: ingress from files/config.yml, auth from the token.
 
 - name: Add Cloudflare apt signing key
   ansible.builtin.get_url:
@@ -34,6 +34,13 @@
     group: root
     mode: '0600'
   no_log: true
+  notify: restart cloudflared
+
+- name: Deploy the ingress config
+  ansible.builtin.copy:
+    src: config.yml
+    dest: /etc/cloudflared/config.yml
+    mode: '0644'
   notify: restart cloudflared
 
 - name: Deploy the cloudflared systemd unit

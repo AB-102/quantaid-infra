@@ -1,0 +1,8 @@
+# Ingress for the locally-managed tunnel, shared by both routes. The token only authenticates the connector.
+# Each hostname also needs a proxied CNAME to <tunnel-id>.cfargotunnel.com in Cloudflare DNS.
+ingress:
+  - hostname: quantaid.org
+    service: http://localhost:80
+  - hostname: www.quantaid.org
+    service: http://localhost:80
+  - service: http_status:404

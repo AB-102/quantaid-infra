@@ -61,11 +61,19 @@ curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/
 echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
 sudo apt update
 sudo apt install -y cloudflared
-# The tunnel and its public hostnames are managed in the Cloudflare dashboard; this only runs the connector.
+# Runs the connector for the locally-managed tunnel: ingress from config.yml, auth from the token.
 # A root-only token file keeps the token out of the unit file and the process list.
 sudo mkdir -p /etc/cloudflared
 printf '%s' "$CLOUDFLARE_TUNNEL_TOKEN" | sudo tee /etc/cloudflared/token > /dev/null
 sudo chmod 600 /etc/cloudflared/token
+sudo tee /etc/cloudflared/config.yml > /dev/null <<'EOF'
+ingress:
+  - hostname: quantaid.org
+    service: http://localhost:80
+  - hostname: www.quantaid.org
+    service: http://localhost:80
+  - service: http_status:404
+EOF
 sudo tee /etc/systemd/system/cloudflared.service > /dev/null <<'EOF'
 [Unit]
 Description=Cloudflare Tunnel connector
@@ -74,7 +82,7 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token-file /etc/cloudflared/token
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel --config /etc/cloudflared/config.yml run --token-file /etc/cloudflared/token
 Restart=on-failure
 RestartSec=5
 

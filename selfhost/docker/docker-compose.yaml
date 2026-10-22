@@ -40,9 +40,12 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.2
-    command: ["tunnel", "--no-autoupdate", "run"]
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    volumes:
+      # Ingress rules, shared with the VM route
+      - ../ansible/roles/cloudflared/files/config.yml:/etc/cloudflared/config.yml:ro
     # Host networking: reaches the proxy at localhost:80, like the VM route's tunnel
     network_mode: host
     restart: unless-stopped
