@@ -64,6 +64,8 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
+      # Links in alert emails use this; it's the main PC's end of the B8 SSH tunnel
+      GF_SERVER_ROOT_URL: http://localhost:3001
       GF_SMTP_ENABLED: "true"
       GF_SMTP_HOST: smtp.resend.com:587
       GF_SMTP_USER: resend
