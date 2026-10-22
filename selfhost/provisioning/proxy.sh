@@ -35,6 +35,10 @@ server {
     listen 80;
     server_name proxy.lab.home.arpa;
 
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
     location / {
         proxy_pass http://frontend;
         proxy_set_header Host $host;
