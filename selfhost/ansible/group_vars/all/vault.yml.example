@@ -5,6 +5,8 @@ vault_backend_openai_api_key: "your-openai-api-key"
 vault_backend_mongodb_uri: "your-mongodb-connection-uri"
 vault_backend_admin_emails: "admin1@email.com,admin2@email.com"
 vault_backend_jwt_secret_key: "your-jwt-secret-key"
+# Sending-only Resend key for mail.quantaid.org, separate from the monitoring SMTP key. "" turns email off.
+vault_backend_resend_api_key: "your-resend-api-key"
 
 # --- monitoring ---
 # Read-only Atlas user for the mongodump backups

@@ -12,6 +12,7 @@ services:
       MONGODB_URI: ${MONGODB_URI}
       ADMIN_EMAILS: ${ADMIN_EMAILS}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY}
       ENVIRONMENT: production
       CORS_ORIGINS: https://quantaid.org,https://www.quantaid.org
       IS_RICE_DEPLOYMENT: "false"

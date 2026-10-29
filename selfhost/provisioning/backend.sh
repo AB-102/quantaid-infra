@@ -35,6 +35,7 @@ OPENAI_API_KEY=$OPENAI_API_KEY
 MONGODB_URI=$MONGODB_URI
 ADMIN_EMAILS=$ADMIN_EMAILS
 JWT_SECRET_KEY=$JWT_SECRET_KEY
+RESEND_API_KEY=$RESEND_API_KEY
 EOF
 uv sync
 sudo tee /etc/systemd/system/quantaid-backend.service > /dev/null <<'EOF'
