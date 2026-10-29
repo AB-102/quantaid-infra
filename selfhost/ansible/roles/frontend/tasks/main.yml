@@ -1,11 +1,8 @@
 ---
-- name: Install npm and git
-  ansible.builtin.apt:
-    name:
-      - npm
-      - git
+- name: Install Node.js, npm and git
+  ansible.builtin.dnf:
+    name: "{{ frontend_node_packages + ['git'] }}"
     state: present
-    update_cache: true
 
 # serve isn't a frontend dependency, so it's installed globally
 - name: Install serve (static file server for dist)
@@ -77,11 +74,10 @@
       - npm run build
 
 - name: Allow the frontend port from the proxy VM
-  community.general.ufw:
-    rule: allow
-    src: "{{ hostvars[groups['proxy'][0]].ansible_host }}"
-    port: '5173'
-
-- name: Enable UFW
-  community.general.ufw:
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ proxy_ip }}" port port="5173" protocol="tcp" accept'
+    permanent: true
+    immediate: true
     state: enabled
+  vars:
+    proxy_ip: "{{ hostvars[groups['proxy'][0]].ansible_host }}"

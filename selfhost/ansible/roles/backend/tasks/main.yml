@@ -1,29 +1,17 @@
 ---
 # ansible.cfg sets become: true; tasks under /home/anb use become: false so anb owns the files.
 
-- name: Install Python, uv prerequisites, and git
-  ansible.builtin.apt:
-    name:
-      - python3
-      - python3-pip
-      - python3-venv
-      - git
-      - curl
+- name: Install git
+  ansible.builtin.dnf:
+    name: git
     state: present
-    update_cache: true
 
-- name: Install uv
-  ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+# Not in ~/.local/bin: SELinux won't let systemd run a program from /home (the unit would fail with 203/EXEC).
+# uv also manages the backend's Python, so the system Python's version doesn't matter.
+- name: Install uv into /usr/local/bin
+  ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
   args:
-    creates: /home/anb/.local/bin/uv
-  become: false
-
-- name: Ensure uv is on PATH for interactive logins
-  ansible.builtin.lineinfile:
-    path: /home/anb/.bashrc
-    line: '. "$HOME/.local/bin/env"'
-    create: true
-  become: false
+    creates: /usr/local/bin/uv
 
 # Clone only; afterwards the auto_update timer moves the checkout to each passing commit
 - name: Clone the backend repository
@@ -46,7 +34,7 @@
   notify: restart quantaid-backend
 
 - name: Run uv sync
-  ansible.builtin.command: /home/anb/.local/bin/uv sync
+  ansible.builtin.command: /usr/local/bin/uv sync
   args:
     chdir: /home/anb/quantaid-backend
   become: false
@@ -76,20 +64,15 @@
     au_repo_dir: /home/anb/quantaid-backend
     au_build_dir: /home/anb/quantaid-backend
     au_build_commands:
-      - /home/anb/.local/bin/uv sync
+      - /usr/local/bin/uv sync
 
-- name: Allow the backend port from the proxy VM
-  community.general.ufw:
-    rule: allow
-    src: "{{ hostvars[groups['proxy'][0]].ansible_host }}"
-    port: '8000'
-
-- name: Allow the backend port from the monitoring VM (blackbox /health probe)
-  community.general.ufw:
-    rule: allow
-    src: "{{ hostvars[groups['monitoring'][0]].ansible_host }}"
-    port: '8000'
-
-- name: Enable UFW
-  community.general.ufw:
+# The proxy VM forwards /api here, and the monitoring VM's blackbox exporter probes /health
+- name: Allow the backend port from the proxy and monitoring VMs
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="8000" protocol="tcp" accept'
+    permanent: true
+    immediate: true
     state: enabled
+  loop:
+    - "{{ hostvars[groups['proxy'][0]].ansible_host }}"
+    - "{{ hostvars[groups['monitoring'][0]].ansible_host }}"

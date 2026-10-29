@@ -1,23 +1,18 @@
 ---
 # Runs the connector for the locally-managed tunnel: ingress from files/config.yml, auth from the token.
 
-- name: Add Cloudflare apt signing key
-  ansible.builtin.get_url:
-    url: https://pkg.cloudflare.com/cloudflare-main.gpg
-    dest: /usr/share/keyrings/cloudflare-main.gpg
-    mode: '0644'
-
-- name: Add cloudflared apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main"
-    filename: cloudflared
-  register: cloudflared_repo
+- name: Add the cloudflared repository
+  ansible.builtin.yum_repository:
+    name: cloudflared-stable
+    description: cloudflared-stable
+    baseurl: https://pkg.cloudflare.com/cloudflared/rpm
+    gpgkey: https://pkg.cloudflare.com/cloudflare-ascii-pubkey.gpg
+    gpgcheck: true
 
 - name: Install cloudflared
-  ansible.builtin.apt:
+  ansible.builtin.dnf:
     name: cloudflared
     state: present
-    update_cache: "{{ cloudflared_repo.changed }}"
 
 - name: Ensure /etc/cloudflared exists
   ansible.builtin.file:

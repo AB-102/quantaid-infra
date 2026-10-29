@@ -4,7 +4,7 @@
 #   au_build_commands (run in order; the script stops at the first failure)
 
 - name: Install jq (parses the GitHub API response)
-  ansible.builtin.apt:
+  ansible.builtin.dnf:
     name: jq
     state: present
 

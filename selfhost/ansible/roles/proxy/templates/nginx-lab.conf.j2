@@ -7,7 +7,11 @@ upstream frontend {
 }
 
 server {
-    listen 80;
+    # Tunnel requests carry Host: quantaid.org, so they need the default server. Rocky's nginx.conf has its own
+    # port-80 server block, on IPv4 and IPv6; without [::]:80 here, cloudflared's localhost connections over ::1
+    # would get the nginx welcome page.
+    listen 80 default_server;
+    listen [::]:80 default_server;
     server_name {{ inventory_hostname }};
 
     # Inherited by the locations below, which set no headers of their own

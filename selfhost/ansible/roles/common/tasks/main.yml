@@ -1,5 +1,7 @@
 ---
-- import_tasks: netplan.yml
-- import_tasks: ufw_baseline.yml
+- import_tasks: base.yml
+- import_tasks: network.yml
+- import_tasks: firewall.yml
+- import_tasks: updates.yml
 - import_tasks: authorized_keys.yml
 - import_tasks: node_exporter.yml

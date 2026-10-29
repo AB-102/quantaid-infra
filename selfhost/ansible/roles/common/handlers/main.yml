@@ -1,6 +1,6 @@
 ---
-- name: netplan apply
-  ansible.builtin.command: netplan apply
+- name: apply network profile
+  ansible.builtin.shell: nmcli connection reload && nmcli connection up {{ ansible_default_ipv4.interface }}
 
 - name: restart node_exporter
   ansible.builtin.systemd:

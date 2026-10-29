@@ -1,0 +1,32 @@
+text
+lang en_US.UTF-8
+keyboard us
+timezone Etc/UTC --utc
+network --bootproto=dhcp --device=link --activate --hostname=quantaid-base
+
+rootpw --lock
+# Console login only; SSH is key-only (see %post)
+user --name=anb --groups=wheel --iscrypted --password=__ANB_PASSWORD_HASH__
+sshkey --username=anb "__ANB_SSH_PUBLIC_KEY__"
+
+selinux --enforcing
+firewall --enabled --service=ssh
+services --enabled=sshd
+
+zerombr
+clearpart --all --initlabel
+autopart --type=plain --nohome
+reboot
+
+%packages
+@^minimal-environment
+# Lets the host see the VM's address (vmrun getGuestIPAddress)
+open-vm-tools
+%end
+
+%post
+echo 'anb ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-anb-nopasswd
+chmod 440 /etc/sudoers.d/90-anb-nopasswd
+# "01-" so sshd reads it before Rocky's 50-redhat.conf (sshd keeps the first value it reads)
+echo 'PasswordAuthentication no' > /etc/ssh/sshd_config.d/01-key-only.conf
+%end

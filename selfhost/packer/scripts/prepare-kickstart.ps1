@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-Generates http/user-data from http/user-data.template with your SSH public key and a password hash.
+Generates http/ks.cfg from http/ks.cfg.template with your SSH public key and a password hash.
 
 .EXAMPLE
-.\scripts\prepare-user-data.ps1 -SshPublicKeyPath "$env:USERPROFILE\.ssh\id_ed25519.pub" -PasswordHash '$6$...'
+.\scripts\prepare-kickstart.ps1 -SshPublicKeyPath "$env:USERPROFILE\.ssh\id_ed25519.pub" -PasswordHash '$6$...'
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -15,8 +15,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$templatePath = Join-Path $PSScriptRoot "..\http\user-data.template"
-$outputPath = Join-Path $PSScriptRoot "..\http\user-data"
+$templatePath = Join-Path $PSScriptRoot "..\http\ks.cfg.template"
+$outputPath = Join-Path $PSScriptRoot "..\http\ks.cfg"
 
 $sshPublicKey = (Get-Content $SshPublicKeyPath -Raw).Trim()
 

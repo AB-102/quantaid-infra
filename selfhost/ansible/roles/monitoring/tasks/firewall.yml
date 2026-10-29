@@ -1,16 +1,10 @@
 ---
-- name: Allow Grafana from the LAN
-  community.general.ufw:
-    rule: allow
-    src: "{{ lan_subnet }}"
-    port: '3000'
-
-- name: Allow Prometheus from the LAN
-  community.general.ufw:
-    rule: allow
-    src: "{{ lan_subnet }}"
-    port: '9090'
-
-- name: Enable UFW
-  community.general.ufw:
+- name: Allow Grafana and Prometheus from the LAN
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ lan_subnet }}" port port="{{ item }}" protocol="tcp" accept'
+    permanent: true
+    immediate: true
     state: enabled
+  loop:
+    - '3000'
+    - '9090'

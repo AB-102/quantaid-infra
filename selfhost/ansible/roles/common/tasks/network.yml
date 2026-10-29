@@ -1,0 +1,9 @@
+---
+# Anaconda names its DHCP profile after the interface, so this file replaces it rather than adding a second one
+- name: Render the static-IP NetworkManager profile
+  ansible.builtin.template:
+    src: network.nmconnection.j2
+    dest: "/etc/NetworkManager/system-connections/{{ ansible_default_ipv4.interface }}.nmconnection"
+    owner: root
+    mode: '0600'
+  notify: apply network profile

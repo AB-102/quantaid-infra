@@ -1,0 +1,14 @@
+[connection]
+id={{ ansible_default_ipv4.interface }}
+type=ethernet
+interface-name={{ ansible_default_ipv4.interface }}
+# Wins over any other profile for this interface at boot
+autoconnect-priority=10
+
+[ipv4]
+method=manual
+address1={{ ansible_host }}/24,{{ lan_gateway }}
+dns={{ hostvars[groups['dns'][0]].ansible_host }};
+
+[ipv6]
+method=disabled

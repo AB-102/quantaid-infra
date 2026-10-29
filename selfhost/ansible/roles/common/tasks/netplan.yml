@@ -1,8 +1,0 @@
----
-- name: Render static-IP netplan config
-  ansible.builtin.template:
-    src: netplan.yaml.j2
-    dest: /etc/netplan/00-installer-config.yaml
-    owner: root
-    mode: '0600'
-  notify: netplan apply

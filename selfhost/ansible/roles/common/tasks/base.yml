@@ -1,0 +1,14 @@
+---
+# Every VM is cloned from the same base image, which is called quantaid-base
+- name: Set the hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+# ansible.posix.seboolean (proxy role) needs the Python bindings; semanage and restorecon come with the utils
+- name: Install SELinux management tools
+  ansible.builtin.dnf:
+    name:
+      - python3-libselinux
+      - python3-libsemanage
+      - policycoreutils-python-utils
+    state: present

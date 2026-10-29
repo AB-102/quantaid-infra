@@ -1,0 +1,53 @@
+// Rocky's stock /etc/named.conf, opened up to the lab subnet and with the lab zone added
+
+options {
+	listen-on port 53 { any; };
+	listen-on-v6 port 53 { any; };
+	directory 	"/var/named";
+	dump-file 	"/var/named/data/cache_dump.db";
+	statistics-file "/var/named/data/named_stats.txt";
+	memstatistics-file "/var/named/data/named_mem_stats.txt";
+	secroots-file	"/var/named/data/named.secroots";
+	recursing-file	"/var/named/data/named.recursing";
+	allow-query     { {{ lan_subnet }}; localhost; };
+
+	recursion yes;
+	allow-recursion { {{ lan_subnet }}; localhost; };
+
+	forwarders {
+{% for fwd in dns_forwarders %}
+		{{ fwd }};
+{% endfor %}
+	};
+
+	dnssec-validation auto;
+
+	managed-keys-directory "/var/named/dynamic";
+	geoip-directory "/usr/share/GeoIP";
+
+	pid-file "/run/named/named.pid";
+	session-keyfile "/run/named/session.key";
+
+	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
+	include "/etc/crypto-policies/back-ends/bind.config";
+};
+
+logging {
+        channel default_debug {
+                file "data/named.run";
+                severity dynamic;
+        };
+};
+
+zone "." IN {
+	type hint;
+	file "named.ca";
+};
+
+zone "{{ lab_domain }}" {
+	type master;
+	file "/var/named/db.{{ lab_domain }}";
+};
+
+include "/etc/named.rfc1912.zones";
+include "/etc/named.root.key";

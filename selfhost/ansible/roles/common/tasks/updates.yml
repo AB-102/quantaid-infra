@@ -1,0 +1,21 @@
+---
+# Security updates only, applied daily and never rebooting, like Ubuntu's default unattended-upgrades
+- name: Install dnf-automatic
+  ansible.builtin.dnf:
+    name: dnf-automatic
+    state: present
+
+- name: Apply security updates automatically
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: "^{{ item.key }} ="
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - {key: upgrade_type, value: security}
+    - {key: apply_updates, value: 'yes'}
+
+- name: Ensure dnf-automatic.timer is enabled and running
+  ansible.builtin.systemd:
+    name: dnf-automatic.timer
+    enabled: true
+    state: started

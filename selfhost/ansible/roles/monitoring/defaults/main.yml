@@ -2,7 +2,9 @@
 prometheus_version: "3.13.0"
 mongodb_exporter_version: "0.51.0"
 blackbox_exporter_version: "0.28.0"
-mongodb_tools_version: "100.19.1"
-# No checksum file is published; the sha256 is in https://downloads.mongodb.org/tools/db/release.json
-mongodb_tools_sha256: f34b84a67ab96b4ff52571ec5d15e2148d96cb140b1ea9ef8c29ac33c48e3480
-mongodb_tools_platform: ubuntu2404-x86_64
+mongodb_tools_version: "100.20.0"
+# No checksum file is published; the sha256 is in https://downloads.mongodb.org/tools/db/release.json.
+# 100.20.0 is the first release with a rhel10 build. On Rocky 9, use platform rhel93-x86_64 with
+# sha256 c3bbe9ddad4080cc5dc2a4b44d20e57733b168d21ff275244b7bca407a79fd8e
+mongodb_tools_sha256: 903bf2ce771a183dec589d7496f76472e731a627fc38d5802150312f9458ffab
+mongodb_tools_platform: rhel10-x86_64

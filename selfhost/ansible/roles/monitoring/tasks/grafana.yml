@@ -1,21 +1,18 @@
 ---
-- name: Add Grafana apt signing key
-  ansible.builtin.get_url:
-    url: https://apt.grafana.com/gpg-full.key
-    dest: /etc/apt/keyrings/grafana.asc
-    mode: '0644'
-
-- name: Add Grafana apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
-    filename: grafana
-  register: grafana_repo
+# As in Grafana's RPM install docs, including the signed repository metadata
+- name: Add the Grafana repository
+  ansible.builtin.yum_repository:
+    name: grafana
+    description: grafana
+    baseurl: https://rpm.grafana.com
+    gpgkey: https://rpm.grafana.com/gpg.key
+    gpgcheck: true
+    repo_gpgcheck: true
 
 - name: Install grafana
-  ansible.builtin.apt:
+  ansible.builtin.dnf:
     name: grafana
     state: present
-    update_cache: "{{ grafana_repo.changed }}"
 
 - name: Ensure Grafana provisioning and systemd drop-in directories exist
   ansible.builtin.file:

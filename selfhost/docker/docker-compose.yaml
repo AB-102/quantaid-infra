@@ -1,6 +1,7 @@
 # Single-host route: app, proxy, tunnel, monitoring and backups. Secrets come from .env.
-# Ports bind to 127.0.0.1 because Docker's published ports bypass UFW; reach Grafana
+# Ports bind to 127.0.0.1 because Docker's published ports bypass firewalld; reach Grafana
 # and Prometheus through an SSH tunnel.
+# Bind mounts end in z so Docker relabels them for SELinux; hosts without SELinux ignore it.
 
 services:
   backend:
@@ -28,7 +29,7 @@ services:
     ports:
       - "127.0.0.1:80:80"
     volumes:
-      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro,z
     # Restart nginx when backend or frontend is recreated, so it picks up their new IPs
     depends_on:
       backend:
@@ -46,7 +47,7 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     volumes:
       # Ingress rules, shared with the VM route
-      - ../ansible/roles/cloudflared/files/config.yml:/etc/cloudflared/config.yml:ro
+      - ../ansible/roles/cloudflared/files/config.yml:/etc/cloudflared/config.yml:ro,z
     # Host networking: reaches the proxy at localhost:80, like the VM route's tunnel
     network_mode: host
     restart: unless-stopped
@@ -56,7 +57,7 @@ services:
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
       - prometheus-data:/prometheus
     restart: unless-stopped
 
@@ -78,11 +79,11 @@ services:
       NTFY_TOPIC: ${NTFY_TOPIC}
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
-      - ./grafana/contactpoints.yml:/etc/grafana/provisioning/alerting/contactpoints.yml:ro
+      - ./grafana/datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro,z
+      - ./grafana/contactpoints.yml:/etc/grafana/provisioning/alerting/contactpoints.yml:ro,z
       # Shared with the VM route; these templates contain no Jinja
-      - ../ansible/roles/monitoring/templates/grafana-alert-rules.yml.j2:/etc/grafana/provisioning/alerting/rules.yml:ro
-      - ../ansible/roles/monitoring/templates/grafana-policies.yml.j2:/etc/grafana/provisioning/alerting/policies.yml:ro
+      - ../ansible/roles/monitoring/templates/grafana-alert-rules.yml.j2:/etc/grafana/provisioning/alerting/rules.yml:ro,z
+      - ../ansible/roles/monitoring/templates/grafana-policies.yml.j2:/etc/grafana/provisioning/alerting/policies.yml:ro,z
     restart: unless-stopped
 
   node-exporter:
@@ -92,6 +93,10 @@ services:
       # backup.sh writes its last-success metric here
       - --collector.textfile.directory=/host/var/lib/node_exporter/textfile
     pid: host
+    # It reads the whole host, which can't be relabeled for containers, so it runs without SELinux separation.
+    # Never add z to this mount: relabeling / would break the host.
+    security_opt:
+      - label=disable
     volumes:
       - /:/host:ro,rslave
     restart: unless-stopped
@@ -100,7 +105,7 @@ services:
     image: prom/blackbox-exporter:v0.28.0
     volumes:
       # Shared with the VM route; this template contains no Jinja
-      - ../ansible/roles/monitoring/templates/blackbox.yml.j2:/etc/blackbox_exporter/config.yml:ro
+      - ../ansible/roles/monitoring/templates/blackbox.yml.j2:/etc/blackbox_exporter/config.yml:ro,z
     restart: unless-stopped
 
   mongodb-exporter:
@@ -118,9 +123,9 @@ services:
     environment:
       MONGODB_BACKUP_URI: ${MONGODB_BACKUP_URI}
     volumes:
-      - ./backup/backup.sh:/backup.sh:ro
-      - /var/backups/quantaid-mongo:/backups
-      - /var/lib/node_exporter/textfile:/textfile
+      - ./backup/backup.sh:/backup.sh:ro,z
+      - /var/backups/quantaid-mongo:/backups:z
+      - /var/lib/node_exporter/textfile:/textfile:z
 
 volumes:
   prometheus-data:

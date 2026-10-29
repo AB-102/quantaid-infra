@@ -1,0 +1,36 @@
+---
+# Rocky's default zone allows ssh and cockpit from anywhere. Each role adds its own source-restricted rules.
+
+- name: Ensure firewalld is enabled and running
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+
+# Before ssh is closed below, so a run can't lock itself out
+- name: Allow SSH from the LAN
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ lan_subnet }}" port port="22" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Close the services Rocky opens to everyone by default
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop:
+    - ssh
+    - cockpit
+
+- name: Allow node_exporter scrape from the monitoring VM
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ monitoring_ip }}" port port="9100" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  vars:
+    monitoring_ip: "{{ hostvars[groups['monitoring'][0]].ansible_host }}"
+  when: inventory_hostname not in groups['monitoring']

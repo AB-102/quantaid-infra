@@ -2,8 +2,8 @@ docs/
 selfhost/**/*.env
 !selfhost/**/*.env.example
 selfhost/**/*.md
-# Packer build output and the generated user-data
-selfhost/packer/http/user-data
+# Packer build output and the generated kickstart file
+selfhost/packer/http/ks.cfg
 selfhost/packer/output/
 # Kept out even when encrypted: this repo is public
 selfhost/ansible/group_vars/all/vault.yml

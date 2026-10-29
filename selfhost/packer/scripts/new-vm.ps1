@@ -26,7 +26,7 @@ if (Test-Path $targetVmx) {
 }
 
 if (-not (Test-Path $BaseVmx)) {
-    Write-Error "Base image not found at $BaseVmx -- run 'packer build ubuntu.pkr.hcl' first."
+    Write-Error "Base image not found at $BaseVmx -- run 'packer build rocky.pkr.hcl' first."
     exit 1
 }
 

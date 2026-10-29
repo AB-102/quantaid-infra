@@ -1,32 +1,26 @@
 ---
 - name: Install nginx
-  ansible.builtin.apt:
+  ansible.builtin.dnf:
     name: nginx
     state: present
-    update_cache: true
 
-- name: Remove the default nginx site
-  ansible.builtin.file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-
+# Rocky's nginx.conf keeps its own port-80 server block; lab.conf takes over as default_server
 - name: Deploy the nginx site config
   ansible.builtin.template:
     src: nginx-lab.conf.j2
-    dest: /etc/nginx/sites-available/lab
+    dest: /etc/nginx/conf.d/lab.conf
     mode: '0644'
-  notify: reload nginx
-
-- name: Enable the nginx site
-  ansible.builtin.file:
-    src: /etc/nginx/sites-available/lab
-    dest: /etc/nginx/sites-enabled/lab
-    state: link
   notify: reload nginx
 
 - name: Check nginx config is valid
   ansible.builtin.command: nginx -t
   changed_when: false
+
+- name: Let nginx proxy to the frontend and backend VMs (SELinux blocks outbound connections from nginx otherwise)
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: true
 
 - name: Ensure nginx is enabled and running
   ansible.builtin.systemd:
@@ -34,12 +28,4 @@
     enabled: true
     state: started
 
-- name: Allow loopback access to nginx (cloudflared connects via localhost)
-  community.general.ufw:
-    rule: allow
-    src: 127.0.0.1
-    port: '80'
-
-- name: Enable UFW
-  community.general.ufw:
-    state: enabled
+# cloudflared reaches nginx over loopback, which firewalld never filters, so port 80 needs no rule
