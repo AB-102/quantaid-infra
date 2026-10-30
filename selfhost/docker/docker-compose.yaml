@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   proxy:
-    image: nginx:1.30.6-alpine
+    image: nginx:1.31.0-alpine
     # proxy.conf sends it as the X-Served-By header
     hostname: ${SERVED_BY:?set SERVED_BY in host.env}
     ports:
@@ -58,7 +58,7 @@ services:
     restart: unless-stopped
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.4
+    image: cloudflare/cloudflared:2026.10.5
     # When stopped, cloudflared takes no new requests and waits for the ones in flight. AI requests can take
     # up to the proxy's 120 s, so it waits 125 s, and Docker waits 130 s before killing it (its default is 10 s).
     command: [ "tunnel", "--no-autoupdate", "--grace-period", "125s", "--config", "/etc/cloudflared/config.yml", "run" ]
@@ -73,7 +73,7 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:v3.13.0
+    image: prom/prometheus:v3.15.1
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -82,7 +82,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.0
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -107,7 +107,7 @@ services:
     restart: unless-stopped
 
   node-exporter:
-    image: prom/node-exporter:v1.11.1
+    image: prom/node-exporter:v1.12.1
     command:
       - --path.rootfs=/host
       # backup.sh writes its last-success metric here
@@ -122,14 +122,14 @@ services:
     restart: unless-stopped
 
   blackbox-exporter:
-    image: prom/blackbox-exporter:v0.28.0
+    image: prom/blackbox-exporter:v0.29.1
     volumes:
       # Shared with the VM route; this template contains no Jinja
       - ../ansible/roles/monitoring/templates/blackbox.yml.j2:/etc/blackbox_exporter/config.yml:ro,z
     restart: unless-stopped
 
   mongodb-exporter:
-    image: percona/mongodb_exporter:0.51.0
+    image: percona/mongodb_exporter:0.54.0
     command: [ "--collector.diagnosticdata", "--compatible-mode" ]
     environment:
       MONGODB_URI: ${MONGODB_MONITOR_URI}
@@ -137,7 +137,7 @@ services:
 
   # Run daily by quantaid-backup.timer, not by `docker compose up`
   backup:
-    image: mongo:8.0.34
+    image: mongo:9.0.2
     profiles: [ "backup" ]
     command: [ "sh", "/backup.sh" ]
     environment:
