@@ -18,7 +18,7 @@ jobs:
       run:
         working-directory: selfhost/docker
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # On a host, the updater writes .env from host.env and release.env the same way
       - run: cat host.env.example ../release.env > .env
       - run: docker compose config --quiet
@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: selfhost/ansible
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: pipx install ansible-core
       - run: ansible-galaxy collection install -r requirements.yml
       # Parses every playbook and role; needs no inventory hosts or vault
@@ -41,7 +41,7 @@ jobs:
       run:
         working-directory: selfhost/packer
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-packer@v3
       - run: packer init .
       - run: packer fmt -check .
@@ -51,7 +51,7 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: shellcheck selfhost/docker/update/update.sh selfhost/docker/gate/gate.sh selfhost/docker/backup/backup.sh selfhost/docker/backup/upload.sh
 
   terraform:
@@ -63,8 +63,8 @@ jobs:
       run:
         working-directory: terraform/${{ matrix.stack }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.17.1
       - run: terraform fmt -check
