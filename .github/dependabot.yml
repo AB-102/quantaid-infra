@@ -1,0 +1,23 @@
+# Weekly update PRs, one per ecosystem. dependabot-auto-merge.yml merges each once the required checks pass.
+# A merge here changes no host by itself: hosts only take infra changes on a manual git pull.
+version: 2
+updates:
+  # The pinned images in the compose file: nginx, cloudflared, Prometheus, Grafana, the exporters, mongo
+  - package-ecosystem: docker-compose
+    directory: /selfhost/docker
+    schedule:
+      interval: weekly
+    ignore:
+      # The app images follow selfhost/release.env, not Dependabot
+      - dependency-name: ghcr.io/ab-102/*
+    groups:
+      images:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

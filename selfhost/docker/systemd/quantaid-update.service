@@ -1,10 +1,13 @@
 [Unit]
-Description=Pull and start new Quantaid images
+Description=Deploy the Quantaid release pinned in quantaid-infra
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=oneshot
+# anb owns the infra clone and /var/lib/quantaid, and is in the docker group
+User=anb
 WorkingDirectory=/home/anb/quantaid-infra/selfhost/docker
-# CI only pushes :main after tests and the staging deploys pass
-ExecStart=/usr/bin/docker compose pull --quiet
-ExecStart=/usr/bin/docker compose up -d
-ExecStart=/usr/bin/docker image prune -f
+# Through sh: SELinux lets services read files under /home, but not execute them
+ExecStart=/bin/sh update/update.sh
+TimeoutStartSec=15min

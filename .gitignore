@@ -1,6 +1,8 @@
 docs/
 selfhost/**/*.env
 !selfhost/**/*.env.example
+# The release production runs; it holds no secrets
+!selfhost/release.env
 selfhost/**/*.md
 # Packer build output and the generated kickstart file
 selfhost/packer/http/ks.cfg

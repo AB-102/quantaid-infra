@@ -1,13 +1,15 @@
-# Single-host route: app, proxy, tunnel, monitoring and backups. Secrets come from .env.
+# Single-host route: app, proxy, tunnel, monitoring and backups.
+# .env is written by the updater (update/update.sh): this host's host.env plus selfhost/release.env from main,
+# which sets QUANTAID_VERSION, the release the backend and frontend images run.
 # Ports bind to 127.0.0.1 because Docker's published ports bypass firewalld; reach Grafana
 # and Prometheus through an SSH tunnel.
 # Bind mounts end in z so Docker relabels them for SELinux; hosts without SELinux ignore it.
 
 services:
   backend:
-    image: ghcr.io/ab-102/quantaid-backend:main
+    image: ghcr.io/ab-102/quantaid-backend:${QUANTAID_VERSION}
     # 2 workers instead of the image's 4, to fit a 4 GB host
-    command: ["uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+    command: [ "uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2" ]
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       MONGODB_URI: ${MONGODB_URI}
@@ -18,14 +20,29 @@ services:
       CORS_ORIGINS: https://quantaid.org,https://www.quantaid.org
       IS_RICE_DEPLOYMENT: "false"
       GOOGLE_CLIENT_ID: 722089328654-hisqrbcsces4590venl58a6igct6hp1r.apps.googleusercontent.com
+      # Reported by /health, so each host shows which release it runs
+      APP_VERSION: ${QUANTAID_VERSION}
+    # The updater's `up --wait` waits for this. The image has Python but no curl.
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/ab-102/quantaid-frontend:main
+    image: ghcr.io/ab-102/quantaid-frontend:${QUANTAID_VERSION}
+    volumes:
+      # Every release's /assets/ files from the last 30 days, which the updater adds before switching releases.
+      # A page from either release then finds its files on any host.
+      - /var/lib/quantaid/assets:/usr/share/nginx/html/assets:ro,z
     restart: unless-stopped
 
   proxy:
     image: nginx:1.30.6-alpine
+    # proxy.conf sends it as the X-Served-By header
+    hostname: ${SERVED_BY:?set SERVED_BY in host.env}
     ports:
       - "127.0.0.1:80:80"
     volumes:
@@ -42,7 +59,10 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.4
-    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
+    # When stopped, cloudflared takes no new requests and waits for the ones in flight. AI requests can take
+    # up to the proxy's 120 s, so it waits 125 s, and Docker waits 130 s before killing it (its default is 10 s).
+    command: [ "tunnel", "--no-autoupdate", "--grace-period", "125s", "--config", "/etc/cloudflared/config.yml", "run" ]
+    stop_grace_period: 130s
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     volumes:
@@ -110,7 +130,7 @@ services:
 
   mongodb-exporter:
     image: percona/mongodb_exporter:0.51.0
-    command: ["--collector.diagnosticdata", "--compatible-mode"]
+    command: [ "--collector.diagnosticdata", "--compatible-mode" ]
     environment:
       MONGODB_URI: ${MONGODB_MONITOR_URI}
     restart: unless-stopped
@@ -118,8 +138,8 @@ services:
   # Run daily by quantaid-backup.timer, not by `docker compose up`
   backup:
     image: mongo:8.0.34
-    profiles: ["backup"]
-    command: ["sh", "/backup.sh"]
+    profiles: [ "backup" ]
+    command: [ "sh", "/backup.sh" ]
     environment:
       MONGODB_BACKUP_URI: ${MONGODB_BACKUP_URI}
     volumes:

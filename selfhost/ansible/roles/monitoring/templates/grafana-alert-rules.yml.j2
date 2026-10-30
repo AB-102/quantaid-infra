@@ -26,7 +26,13 @@ groups:
                 - evaluator:
                     type: gt
                     params: [93600]
+        # No metric at all means no backup has succeeded on this host yet, which is a stale backup too.
+        # Without this, Grafana fires a generic DatasourceNoData alert instead of this rule.
+        noDataState: Alerting
         for: 5m
+        annotations:
+          summary: "No successful MongoDB backup in over 26 hours"
+          description: "Check journalctl -u quantaid-backup on the Docker host (Route B) or the monitoring VM (Route A)."
 
       - uid: backend-health-unreachable
         title: Backend /health check failing
@@ -50,6 +56,9 @@ groups:
                     type: lt
                     params: [1]
         for: 2m
+        annotations:
+          summary: "The backend's /health check has failed for 2 minutes"
+          description: "Check the backend's logs (docker compose logs backend on Route B, journalctl -u quantaid-backend on Route A), then Atlas."
 
       - uid: vm-disk-high
         title: VM disk usage above 85%
@@ -73,6 +82,9 @@ groups:
                     type: gt
                     params: [85]
         for: 10m
+        annotations:
+          summary: "Disk usage on / is above 85%"
+          description: "See what uses it with docker system df and sudo du -sh /var/lib/docker /var/backups/quantaid-mongo."
 
       - uid: vm-cpu-high
         title: VM CPU usage above 90%
@@ -96,6 +108,9 @@ groups:
                     type: gt
                     params: [90]
         for: 10m
+        annotations:
+          summary: "CPU usage above 90% for 10 minutes"
+          description: "Find the busy process with top, or docker stats on Route B."
 
       - uid: vm-mem-high
         title: VM memory usage above 90%
@@ -119,3 +134,6 @@ groups:
                     type: gt
                     params: [90]
         for: 10m
+        annotations:
+          summary: "Memory usage above 90% for 10 minutes"
+          description: "Check free -h and docker stats on Route B; the backend's workers use the most."

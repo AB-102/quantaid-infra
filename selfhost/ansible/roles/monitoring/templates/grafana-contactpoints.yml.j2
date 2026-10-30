@@ -10,4 +10,5 @@ contactPoints:
       - uid: quantaid-ntfy
         type: webhook
         settings:
-          url: https://ntfy.sh/{{ monitoring_ntfy_topic }}
+          # ntfy's built-in grafana template turns Grafana's JSON into a readable push
+          url: https://ntfy.sh/{{ monitoring_ntfy_topic }}?template=grafana

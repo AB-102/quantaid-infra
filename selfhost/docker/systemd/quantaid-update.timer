@@ -1,9 +1,10 @@
 [Unit]
-Description=Check for new Quantaid images every 5 minutes
+Description=Check for a new Quantaid release every 5 minutes
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=5min
+# On the clock's 5-minute marks. Each host gets its own offset, so two hosts never update at once.
+OnCalendar=*:0/5:00
+AccuracySec=1s
 
 [Install]
 WantedBy=timers.target

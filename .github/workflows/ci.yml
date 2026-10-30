@@ -1,0 +1,55 @@
+name: CI
+
+# Offline checks of the self-hosting config. main's ruleset requires them, so Dependabot's PRs only merge
+# once they pass. Nothing here touches a real host.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: selfhost/docker
+    steps:
+      - uses: actions/checkout@v6
+      # On a host, the updater writes .env from host.env and release.env the same way
+      - run: cat host.env.example ../release.env > .env
+      - run: docker compose config --quiet
+
+  ansible:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: selfhost/ansible
+    steps:
+      - uses: actions/checkout@v6
+      - run: pipx install ansible-core
+      - run: ansible-galaxy collection install -r requirements.yml
+      # Parses every playbook and role; needs no inventory hosts or vault
+      - run: ansible-playbook --syntax-check site.yml
+
+  packer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: selfhost/packer
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-packer@v3
+      - run: packer init .
+      - run: packer fmt -check .
+      # Syntax only: a full validate needs a real SSH key and the kickstart password hash
+      - run: packer validate -syntax-only .
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: shellcheck selfhost/docker/update/update.sh selfhost/docker/backup/backup.sh
