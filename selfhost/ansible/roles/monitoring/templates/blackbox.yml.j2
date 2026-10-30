@@ -5,3 +5,12 @@ modules:
     http:
       valid_status_codes: [200]
       method: GET
+  # /health answers 200 even when the database is down; its body says which
+  http_database_connected:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: [200]
+      method: GET
+      fail_if_body_not_matches_regexp:
+        - '"database":"connected"'

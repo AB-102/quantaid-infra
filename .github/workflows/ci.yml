@@ -33,7 +33,7 @@ jobs:
       - run: pipx install ansible-core
       - run: ansible-galaxy collection install -r requirements.yml
       # Parses every playbook and role; needs no inventory hosts or vault
-      - run: ansible-playbook --syntax-check site.yml
+      - run: ansible-playbook --syntax-check site.yml playbooks/docker_host.yml
 
   packer:
     runs-on: ubuntu-latest
@@ -52,4 +52,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - run: shellcheck selfhost/docker/update/update.sh selfhost/docker/backup/backup.sh
+      - run: shellcheck selfhost/docker/update/update.sh selfhost/docker/gate/gate.sh selfhost/docker/backup/backup.sh selfhost/docker/backup/upload.sh
+
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        stack: [bootstrap, azure, cloudflare]
+    defaults:
+      run:
+        working-directory: terraform/${{ matrix.stack }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+      - run: terraform fmt -check
+      # No backend or credentials: checks the files against the providers' schemas. terraform.yml plans for real.
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate

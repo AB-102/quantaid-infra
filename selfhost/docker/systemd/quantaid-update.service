@@ -8,6 +8,9 @@ Type=oneshot
 # anb owns the infra clone and /var/lib/quantaid, and is in the docker group
 User=anb
 WorkingDirectory=/home/anb/quantaid-infra/selfhost/docker
+# /run/quantaid, for release-ok. Kept between runs, so the gate can read it, and cleared by a reboot.
+RuntimeDirectory=quantaid
+RuntimeDirectoryPreserve=yes
 # Through sh: SELinux lets services read files under /home, but not execute them
 ExecStart=/bin/sh update/update.sh
 TimeoutStartSec=15min

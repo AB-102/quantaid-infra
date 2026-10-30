@@ -1,0 +1,23 @@
+---
+- name: restart sshd
+  ansible.builtin.systemd:
+    name: sshd
+    state: restarted
+
+- name: restart logind
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: restarted
+
+- name: restart docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+
+# Only once the updater has written .env. A gated host's cloudflared isn't in its profiles, so this leaves it alone.
+- name: apply infra changes
+  become_user: anb
+  ansible.builtin.command: docker compose up -d --wait --wait-timeout 180
+  args:
+    chdir: "{{ infra_dir }}/selfhost/docker"
+    removes: "{{ infra_dir }}/selfhost/docker/.env"

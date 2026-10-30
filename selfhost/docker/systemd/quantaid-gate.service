@@ -1,0 +1,21 @@
+[Unit]
+Description=Keep this host in the Cloudflare Tunnel only while its app answers
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+# anb owns the infra clone and /var/lib/quantaid, and is in the docker group
+User=anb
+WorkingDirectory=/home/anb/quantaid-infra/selfhost/docker
+# Leave the tunnel first. After a boot, Docker restarts cloudflared with everything else, which would put the host
+# back in the tunnel before the gate has checked the app, or while it still runs a release from before it was off.
+# Stopping waits for requests in flight (up to 130 s).
+ExecStartPre=/usr/bin/docker compose --profile tunnel stop cloudflared
+# Through sh: SELinux lets services read files under /home, but not execute them
+ExecStart=/bin/sh gate/gate.sh
+TimeoutStartSec=3min
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

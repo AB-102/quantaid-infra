@@ -18,6 +18,12 @@ vault_monitoring_ntfy_topic: "your-unique-topic-name"
 vault_monitoring_smtp_password: "your-resend-api-key"
 vault_monitoring_alert_email_to: "you@example.com"
 
+# --- Docker hosts ---
+# The Healthchecks.io project's ping key (project Settings)
+vault_healthchecks_ping_key: "your-healthchecks-ping-key"
+# The mongo-backups container's URL, then ?, then its create-and-write SAS
+vault_backup_sas_url: "https://yourbackupaccount.blob.core.windows.net/mongo-backups?sv=your-sas"
+
 # --- proxy ---
 # Connector token of the remotely-managed Cloudflare Tunnel
 vault_proxy_cloudflare_tunnel_token: "your-cloudflare-tunnel-connector-token"

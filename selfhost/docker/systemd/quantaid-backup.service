@@ -5,3 +5,5 @@ Description=Quantaid MongoDB Backup
 Type=oneshot
 WorkingDirectory=/home/anb/quantaid-infra/selfhost/docker
 ExecStart=/usr/bin/docker compose run --rm backup
+# Then the off-site copy. Through sh: SELinux lets services read files under /home, but not execute them.
+ExecStart=/bin/sh backup/upload.sh

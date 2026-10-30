@@ -1,0 +1,84 @@
+name: Terraform
+
+# Plans the azure and cloudflare stacks on every pull request that changes terraform/, and applies main once you
+# approve the terraform-apply environment. Azure logins use OIDC, so no Azure secret is stored here.
+# The bootstrap stack isn't here: it creates these identities, so it runs from the main PC.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['terraform/**']
+  push:
+    branches: [main]
+    paths: ['terraform/**']
+
+permissions:
+  contents: read
+  id-token: write
+
+# Runs queue, so an apply never overlaps another plan or apply
+concurrency:
+  group: terraform
+  cancel-in-progress: false
+
+env:
+  ARM_USE_OIDC: true
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_IN_AUTOMATION: true
+
+jobs:
+  plan:
+    # Pull requests from forks get no OIDC token or secrets
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [azure, cloudflare]
+    defaults:
+      run:
+        working-directory: terraform/${{ matrix.stack }}
+    env:
+      # quantaid-tf-plan: Reader, plus the state lock
+      ARM_CLIENT_ID: ${{ vars.AZURE_PLAN_CLIENT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+      # The same file as the gitignored terraform.tfvars on the main PC
+      - run: printf '%s\n' "$TFVARS" > terraform.tfvars
+        env:
+          TFVARS: ${{ matrix.stack == 'azure' && secrets.AZURE_TFVARS || secrets.CLOUDFLARE_TFVARS }}
+      - run: terraform init -input=false
+      - run: terraform plan -input=false -lock-timeout=5m
+
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Waits for your approval, and holds the Cloudflare edit token
+    environment: terraform-apply
+    strategy:
+      max-parallel: 1
+      matrix:
+        stack: [azure, cloudflare]
+    defaults:
+      run:
+        working-directory: terraform/${{ matrix.stack }}
+    env:
+      # quantaid-tf-apply: Contributor on quantaid-prod, the budget, and the state
+      ARM_CLIENT_ID: ${{ vars.AZURE_APPLY_CLIENT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_EDIT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+      - run: printf '%s\n' "$TFVARS" > terraform.tfvars
+        env:
+          TFVARS: ${{ matrix.stack == 'azure' && secrets.AZURE_TFVARS || secrets.CLOUDFLARE_TFVARS }}
+      - run: terraform init -input=false
+      # Applies exactly what this plan printed
+      - run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+      - run: terraform apply -input=false tfplan

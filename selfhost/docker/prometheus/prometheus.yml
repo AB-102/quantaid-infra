@@ -27,3 +27,36 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
+
+  # The database, on this host's backend and on the public URL, which reaches whichever host answers
+  - job_name: blackbox_database
+    metrics_path: /probe
+    params:
+      module: [http_database_connected]
+    static_configs:
+      - targets:
+          - http://backend:8000/health
+          - https://quantaid.org/api/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # From outside, through Cloudflare, like a user
+  - job_name: blackbox_public_health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://quantaid.org/api/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

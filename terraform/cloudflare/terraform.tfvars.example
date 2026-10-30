@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (gitignored) and fill in. CI gets the same file from the CLOUDFLARE_TFVARS secret.
+# The account and zone IDs are on quantaid.org's Overview page in the dashboard; the API lists the other IDs.
+account_id            = "0123456789abcdef0123456789abcdef"
+zone_id               = "0123456789abcdef0123456789abcdef"
+tunnel_id             = "01234567-89ab-cdef-0123-456789abcdef"
+apex_record_id        = "0123456789abcdef0123456789abcdef"
+www_record_id         = "0123456789abcdef0123456789abcdef"
+rate_limit_ruleset_id = "0123456789abcdef0123456789abcdef"

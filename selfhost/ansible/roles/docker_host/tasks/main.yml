@@ -1,0 +1,246 @@
+---
+# A Docker host: Rocky 9, Docker, and selfhost/docker run by its systemd units. The laptop and the Azure VM.
+
+# --- Base ---
+
+- name: Set the hostname and install the SELinux tools
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: base
+
+- name: Install git, nano and firewalld
+  ansible.builtin.dnf:
+    name:
+      - git
+      - nano
+      - firewalld
+    state: present
+
+# "01-" so it's read before Rocky's 50-redhat.conf: sshd keeps the first value it reads
+- name: Allow key-only SSH logins
+  ansible.builtin.copy:
+    content: "PasswordAuthentication no\n"
+    dest: /etc/ssh/sshd_config.d/01-key-only.conf
+    mode: '0644'
+  notify: restart sshd
+
+- name: Ensure firewalld is enabled and running
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+
+# Before ssh is closed below, so a run can't lock itself out
+- name: Allow SSH from the home LAN
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ home_lan }}" service name="ssh" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  when: ssh_from_home_lan_only
+
+# On Azure, ssh stays open here: the network security group already limits it to your home IP
+- name: Close SSH to everyone else
+  ansible.posix.firewalld:
+    service: ssh
+    permanent: true
+    immediate: true
+    state: disabled
+  when: ssh_from_home_lan_only
+
+- name: Close cockpit
+  ansible.posix.firewalld:
+    service: cockpit
+    permanent: true
+    immediate: true
+    state: disabled
+
+- name: Apply security updates daily
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: updates
+
+- name: Keep running with the lid closed
+  when: is_laptop
+  block:
+    - name: Create logind's drop-in folder
+      ansible.builtin.file:
+        path: /etc/systemd/logind.conf.d
+        state: directory
+        mode: '0755'
+
+    - name: Ignore the lid switch
+      ansible.builtin.copy:
+        content: |
+          [Login]
+          HandleLidSwitch=ignore
+          HandleLidSwitchExternalPower=ignore
+          HandleLidSwitchDocked=ignore
+        dest: /etc/systemd/logind.conf.d/lid.conf
+        mode: '0644'
+      notify: restart logind
+
+# 1 GiB of memory isn't enough on its own for the app, Docker and the OS
+- name: Add a swap file
+  when: swap_mb is defined
+  block:
+    - name: Create the swap file
+      ansible.builtin.command: dd if=/dev/zero of=/swapfile bs=1M count={{ swap_mb }}
+      args:
+        creates: /swapfile
+      register: swap_file
+
+    - name: Make the swap file root-only
+      ansible.builtin.file:
+        path: /swapfile
+        mode: '0600'
+
+    - name: Format and turn on the swap file
+      ansible.builtin.shell: mkswap /swapfile && restorecon /swapfile && swapon /swapfile
+      when: swap_file.changed
+
+    - name: Turn on the swap file at boot
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: /swapfile none swap defaults 0 0
+
+# --- Docker Engine, from Docker's CentOS repository ---
+
+- name: Trust Docker's package signing key
+  ansible.builtin.rpm_key:
+    key: https://download.docker.com/linux/centos/gpg
+    fingerprint: 060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35
+
+- name: Add Docker's repository
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+    mode: '0644'
+
+- name: Install Docker Engine
+  ansible.builtin.dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+# Rotating logs, so the disk can't fill. SELinux confines the containers.
+- name: Configure Docker
+  ansible.builtin.copy:
+    content: "{ \"log-driver\": \"local\", \"selinux-enabled\": true }\n"
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: restart docker
+
+- name: Ensure Docker is enabled and running
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Let anb use Docker
+  ansible.builtin.user:
+    name: anb
+    groups: docker
+    append: true
+
+# --- The project ---
+
+- name: Clone quantaid-infra
+  become_user: anb
+  ansible.builtin.git:
+    repo: https://github.com/AB-102/quantaid-infra.git
+    dest: "{{ infra_dir }}"
+    version: main
+  notify: apply infra changes
+
+# No --diff output: it would print the secrets
+- name: Write host.env
+  ansible.builtin.template:
+    src: host.env.j2
+    dest: "{{ infra_dir }}/selfhost/docker/host.env"
+    owner: anb
+    group: anb
+    mode: '0600'
+  diff: false
+
+# The dumps hold every user's data; the backup container runs as root
+- name: Create the backup folder
+  ansible.builtin.file:
+    path: /var/backups/quantaid-mongo
+    state: directory
+    mode: '0700'
+
+- name: Create the backup metric folder
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile
+    state: directory
+    mode: '0755'
+
+# The updater keeps every recent release's frontend files here
+- name: Create the updater's folders
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: anb
+    group: anb
+    mode: '0755'
+  loop:
+    - /var/lib/quantaid
+    - /var/lib/quantaid/assets
+    - /var/lib/quantaid/manifests
+
+# copy, not a symlink or mv, so the units get /etc's SELinux label
+- name: Install the systemd units
+  ansible.builtin.copy:
+    src: "{{ infra_dir }}/selfhost/docker/systemd/{{ item }}"
+    dest: /etc/systemd/system/{{ item }}
+    remote_src: true
+    mode: '0644'
+  loop:
+    - quantaid-update.service
+    - quantaid-update.timer
+    - quantaid-backup.service
+    - quantaid-backup.timer
+    - quantaid-gate.service
+
+- name: Create the update timer's drop-in folder
+  ansible.builtin.file:
+    path: /etc/systemd/system/quantaid-update.timer.d
+    state: directory
+    mode: '0755'
+
+- name: Set this host's update slot
+  ansible.builtin.copy:
+    content: |
+      # This host's minute in every 5, so no two hosts update at once
+      [Timer]
+      OnCalendar=
+      OnCalendar=*:{{ update_offset_minutes }}/5:00
+    dest: /etc/systemd/system/quantaid-update.timer.d/offset.conf
+    mode: '0644'
+
+- name: Enable the timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - quantaid-update.timer
+    - quantaid-backup.timer
+
+# Builds .env and brings the project up, or only prepares the release if its switch time hasn't come
+- name: Run the updater once
+  ansible.builtin.systemd:
+    name: quantaid-update.service
+    state: started
+
+- name: Run the health gate
+  ansible.builtin.systemd:
+    name: quantaid-gate
+    enabled: "{{ gate_enabled }}"
+    state: "{{ 'started' if gate_enabled else 'stopped' }}"

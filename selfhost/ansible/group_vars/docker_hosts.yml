@@ -1,0 +1,3 @@
+---
+infra_dir: /home/anb/quantaid-infra
+home_lan: 10.67.1.0/24

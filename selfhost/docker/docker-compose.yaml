@@ -1,6 +1,10 @@
-# Single-host route: app, proxy, tunnel, monitoring and backups.
+# A Docker host: app, proxy, tunnel, monitoring and backups. Every Docker host runs this file.
 # .env is written by the updater (update/update.sh): this host's host.env plus selfhost/release.env from main,
 # which sets QUANTAID_VERSION, the release the backend and frontend images run.
+# Profiles, chosen by COMPOSE_PROFILES in host.env:
+#   monitoring  Prometheus, Grafana and the exporters. On one host only, which does the alerting.
+#   tunnel      cloudflared. Only on a host without the health gate (gate/gate.sh): there, plain `docker compose up -d`
+#               keeps it running. On a host with the gate, the gate alone starts and stops it.
 # Ports bind to 127.0.0.1 because Docker's published ports bypass firewalld; reach Grafana
 # and Prometheus through an SSH tunnel.
 # Bind mounts end in z so Docker relabels them for SELinux; hosts without SELinux ignore it.
@@ -8,8 +12,8 @@
 services:
   backend:
     image: ghcr.io/ab-102/quantaid-backend:${QUANTAID_VERSION}
-    # 2 workers instead of the image's 4, to fit a 4 GB host
-    command: [ "uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2" ]
+    # Fewer workers than the image's 4, to fit the host's memory: 2 on the 4 GB laptop, 1 on a 1 GB VM
+    command: [ "uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "${BACKEND_WORKERS:?set BACKEND_WORKERS in host.env}" ]
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       MONGODB_URI: ${MONGODB_URI}
@@ -59,6 +63,7 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.5
+    profiles: [ "tunnel" ]
     # When stopped, cloudflared takes no new requests and waits for the ones in flight. AI requests can take
     # up to the proxy's 120 s, so it waits 125 s, and Docker waits 130 s before killing it (its default is 10 s).
     command: [ "tunnel", "--no-autoupdate", "--grace-period", "125s", "--config", "/etc/cloudflared/config.yml", "run" ]
@@ -74,6 +79,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.15.1
+    profiles: [ "monitoring" ]
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -83,6 +89,7 @@ services:
 
   grafana:
     image: grafana/grafana:13.3.0
+    profiles: [ "monitoring" ]
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -108,6 +115,7 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.12.1
+    profiles: [ "monitoring" ]
     command:
       - --path.rootfs=/host
       # backup.sh writes its last-success metric here
@@ -123,6 +131,7 @@ services:
 
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.29.1
+    profiles: [ "monitoring" ]
     volumes:
       # Shared with the VM route; this template contains no Jinja
       - ../ansible/roles/monitoring/templates/blackbox.yml.j2:/etc/blackbox_exporter/config.yml:ro,z
@@ -130,6 +139,7 @@ services:
 
   mongodb-exporter:
     image: percona/mongodb_exporter:0.54.0
+    profiles: [ "monitoring" ]
     command: [ "--collector.diagnosticdata", "--compatible-mode" ]
     environment:
       MONGODB_URI: ${MONGODB_MONITOR_URI}

@@ -137,3 +137,55 @@ groups:
         annotations:
           summary: "Memory usage above 90% for 10 minutes"
           description: "Check free -h and docker stats on Route B; the backend's workers use the most."
+
+      - uid: public-health-failing
+        title: quantaid.org failing from outside
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              instant: true
+              expr: probe_success{job="blackbox_public_health"}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 2m
+        annotations:
+          summary: "https://quantaid.org/api/health has failed from outside for 2 minutes"
+          description: "Users may be getting errors. Check which connectors the tunnel's page in the Cloudflare dashboard lists, then docker compose ps and journalctl -u quantaid-gate on each host."
+
+      - uid: database-error
+        title: A backend reports database errors
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              instant: true
+              expr: probe_success{job="blackbox_database"}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 2m
+        annotations:
+          summary: "A /health check has said the database isn't connected for 2 minutes"
+          description: "The instance label is the URL that failed. The public URL reaches whichever host answered, so check docker compose logs backend on every host, then Atlas. The health gate keeps such a host serving."

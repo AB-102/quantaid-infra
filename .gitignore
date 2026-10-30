@@ -9,3 +9,9 @@ selfhost/packer/http/ks.cfg
 selfhost/packer/output/
 # Kept out even when encrypted: this repo is public
 selfhost/ansible/group_vars/all/vault.yml
+# Terraform: real variable values, local state (bootstrap's), plans and provider downloads
+terraform/**/terraform.tfvars
+terraform/**/*.tfstate
+terraform/**/*.tfstate.*
+terraform/**/*.tfplan
+terraform/**/.terraform/
