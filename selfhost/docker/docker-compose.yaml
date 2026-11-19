@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.7
+    image: cloudflare/cloudflared:2026.11.0
     profiles: [ "tunnel" ]
     # When stopped, cloudflared takes no new requests and waits for the ones in flight. AI requests can take
     # up to the proxy's 120 s, so it waits 125 s, and Docker waits 130 s before killing it (its default is 10 s).
@@ -88,7 +88,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:13.3.0
+    image: grafana/grafana:13.3.1
     profiles: [ "monitoring" ]
     ports:
       - "127.0.0.1:3000:3000"
