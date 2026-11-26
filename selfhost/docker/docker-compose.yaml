@@ -44,7 +44,7 @@ services:
     restart: unless-stopped
 
   proxy:
-    image: nginx:1.31.8-alpine
+    image: nginx:1.31.9-alpine
     # proxy.conf sends it as the X-Served-By header
     hostname: ${SERVED_BY:?set SERVED_BY in host.env}
     ports:
@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.11.0
+    image: cloudflare/cloudflared:2026.11.1
     profiles: [ "tunnel" ]
     # When stopped, cloudflared takes no new requests and waits for the ones in flight. AI requests can take
     # up to the proxy's 120 s, so it waits 125 s, and Docker waits 130 s before killing it (its default is 10 s).
@@ -114,7 +114,7 @@ services:
     restart: unless-stopped
 
   node-exporter:
-    image: prom/node-exporter:v1.12.1
+    image: prom/node-exporter:v1.13.1
     profiles: [ "monitoring" ]
     command:
       - --path.rootfs=/host
@@ -147,7 +147,7 @@ services:
 
   # Run daily by quantaid-backup.timer, not by `docker compose up`
   backup:
-    image: mongo:9.0.4
+    image: mongo:9.0.8
     profiles: [ "backup" ]
     command: [ "sh", "/backup.sh" ]
     environment:
